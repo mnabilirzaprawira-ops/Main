@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC App - Inspeksi HP Second</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#0f172a',
+                        card: '#1e293b',
+                        primary: '#3b82f6',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f59e0b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .tab-active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; }
+        .tab-inactive { color: #94a3b8; }
+        .check-btn.active { background-color: #10b981; color: white; border-color: #10b981; }
+        .cross-btn.active { background-color: #ef4444; color: white; border-color: #ef4444; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Toast Animation */
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-anim { animation: slideIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="antialiased pb-20">
+
+    <!-- Navbar -->
+    <header class="bg-card shadow-md sticky top-0 z-50">
+        <div class="max-w-2xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-mobile-screen-button text-primary"></i> QC COD Pro
+            </h1>
+            <button onclick="document.getElementById('importFile').click()" class="bg-slate-700 hover:bg-slate-600 text-sm px-3 py-1.5 rounded flex items-center gap-2 transition">
+                <i class="fa-solid fa-file-import"></i> Import .md
+            </button>
+            <input type="file" id="importFile" accept=".md" class="hidden" onchange="app.importMarkdown(event)">
+        </div>
+        
+        <!-- Tabs -->
+        <div class="max-w-2xl mx-auto flex border-b border-slate-700">
+            <button onclick="app.switchTab('qc')" id="tab-qc" class="flex-1 py-3 text-center tab-active transition">Form QC</button>
+            <button onclick="app.switchTab('history')" id="tab-history" class="flex-1 py-3 text-center tab-inactive transition">Riwayat</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-2xl mx-auto p-4">
+        
+        <!-- ==================== TAB: FORM QC ==================== -->
+        <div id="view-qc" class="space-y-6">
+            
+            <!-- Section: Info Transaksi -->
+            <section class="bg-card rounded-xl p-5 shadow-lg border border-slate-700">
+                <h2 class="text-lg font-semibold mb-4 border-b border-slate-600 pb-2"><i class="fa-solid fa-circle-info mr-2 text-primary"></i>Detail Transaksi</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Platform -->
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Platform</label>
+                        <select id="input-platform" onchange="app.handlePlatformChange()" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                            <option value="iPhone">Apple iPhone</option>
+                            <option value="Android">Android</option>
+                        </select>
+                    </div>
+
+                    <!-- Merek (Android Only) -->
+                    <div id="wrapper-brand" class="hidden">
+                        <label class="block text-sm text-slate-400 mb-1">Merek</label>
+                        <select id="input-brand" onchange="app.handleBrandChange()" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                            <option value="Samsung">Samsung</option>
+                            <option value="Xiaomi">Xiaomi</option>
+                            <option value="Oppo">Oppo</option>
+                            <option value="Vivo">Vivo</option>
+                            <option value="Realme">Realme</option>
+                            <option value="Infinix">Infinix</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+
+                    <!-- Seri -->
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Seri HP</label>
+                        <select id="input-series" onchange="app.handleSeriesChange()" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                            <!-- Populated by JS -->
+                        </select>
+                        <input type="text" id="input-series-manual" placeholder="Ketik seri manual..." class="w-full mt-2 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary hidden">
+                    </div>
+
+                    <!-- Metode -->
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Metode Transaksi</label>
+                        <select id="input-method" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                            <option value="COD">COD (Cash on Delivery)</option>
+                            <option value="Beli di Konter">Beli di Konter</option>
+                            <option value="Kirim Luar Daerah">Kirim dari Luar Daerah</option>
+                        </select>
+                    </div>
+
+                    <!-- Lokasi -->
+                    <div class="md:col-span-2">
+                        <label class="block text-sm text-slate-400 mb-1">Lokasi / Tempat</label>
+                        <input type="text" id="input-location" placeholder="Contoh: MCD Pemuda, Surabaya" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Finansial -->
+            <section class="bg-card rounded-xl p-5 shadow-lg border border-slate-700">
+                <h2 class="text-lg font-semibold mb-4 border-b border-slate-600 pb-2"><i class="fa-solid fa-money-bill-wave mr-2 text-success"></i>Finansial</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Harga Ditawarkan (Awal)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-400">Rp</span>
+                            <input type="text" id="input-price" oninput="app.formatCurrencyInput(this); app.calculate()" placeholder="0" class="w-full bg-slate-900 border border-slate-600 rounded-lg pl-10 pr-3 py-2 text-white focus:outline-none focus:border-primary text-lg font-bold">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Estimasi Biaya Servis (Manual)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-2 text-slate-400">Rp</span>
+                            <input type="text" id="input-repair" oninput="app.formatCurrencyInput(this); app.calculate()" placeholder="0" class="w-full bg-slate-900 border border-slate-600 rounded-lg pl-10 pr-3 py-2 text-danger focus:outline-none focus:border-danger text-lg font-bold">
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Biaya perbaikan custom untuk LCD, dll.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Checklist QC -->
+            <section class="bg-card rounded-xl p-5 shadow-lg border border-slate-700">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-600 pb-2">
+                    <h2 class="text-lg font-semibold"><i class="fa-solid fa-list-check mr-2 text-warning"></i>Checklist QC</h2>
+                    <span id="badge-minus" class="bg-danger text-white text-xs px-2 py-1 rounded font-bold">Total Minus: 0%</span>
+                </div>
+                
+                <div id="checklist-container" class="space-y-6">
+                    <!-- Dinamis digenerate oleh JS -->
+                </div>
+            </section>
+
+            <!-- Section: Opsional -->
+            <section class="bg-card rounded-xl p-5 shadow-lg border border-slate-700">
+                <h2 class="text-lg font-semibold mb-4 border-b border-slate-600 pb-2"><i class="fa-solid fa-star mr-2 text-primary"></i>Kategori Opsional</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Skor 3uTools (0-100)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="input-3utools" min="0" max="100" placeholder="Skor" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                            <select id="input-3utools-status" class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none">
+                                <option value="Hijau Semua">Hijau Semua</option>
+                                <option value="Ada Merah">Ada Merah</option>
+                                <option value="Tidak Dicek">Tidak Dicek</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Kelengkapan</label>
+                        <select id="input-completeness" onchange="app.calculate()" class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-primary">
+                            <option value="Fullset Original">Fullset Original</option>
+                            <option value="Fullset OEM">Fullset OEM (Cas biasa)</option>
+                            <option value="Batangan">Batangan (-5% Penalti)</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section: Hasil Kalkulasi Harga -->
+            <section class="bg-slate-800 rounded-xl p-5 shadow-lg border-2 border-primary">
+                <h2 class="text-xl font-bold mb-4 text-center text-white"><i class="fa-solid fa-calculator mr-2"></i>Rekomendasi Harga Nego</h2>
+                
+                <div class="space-y-3">
+                    <div class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border-l-4 border-slate-400">
+                        <div>
+                            <p class="text-sm text-slate-400">Pilihan 1: Nego Halus</p>
+                            <p class="text-xs text-slate-500">Kondisi prima, potongan minim</p>
+                        </div>
+                        <span id="price-1" class="text-lg font-bold text-white">Rp 0</span>
+                    </div>
+
+                    <div class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border-l-4 border-success">
+                        <div>
+                            <p class="text-sm text-slate-400">Pilihan 2: Nego Wajar</p>
+                            <p class="text-xs text-slate-500">Potongan standar sesuai minus</p>
+                        </div>
+                        <span id="price-2" class="text-lg font-bold text-success">Rp 0</span>
+                    </div>
+
+                    <div class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border-l-4 border-primary">
+                        <div>
+                            <p class="text-sm text-slate-400">Pilihan 5: Harga Rekomendasi Akhir</p>
+                            <p class="text-xs text-slate-500">Harga murni setelah dikurangi minus & servis</p>
+                        </div>
+                        <span id="price-5" class="text-xl font-extrabold text-primary">Rp 0</span>
+                    </div>
+
+                    <div class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border-l-4 border-warning">
+                        <div>
+                            <p class="text-sm text-slate-400">Pilihan 4: Maksimal Pengambilan</p>
+                            <p class="text-xs text-slate-500">Batas atas sebelum rugi</p>
+                        </div>
+                        <span id="price-4" class="text-lg font-bold text-warning">Rp 0</span>
+                    </div>
+
+                    <div class="bg-slate-900 p-3 rounded-lg flex justify-between items-center border-l-4 border-danger">
+                        <div>
+                            <p class="text-sm text-slate-400">Pilihan 3: Nego Sadis</p>
+                            <p class="text-xs text-slate-500">Target untung / jual kembali</p>
+                        </div>
+                        <span id="price-3" class="text-lg font-bold text-danger">Rp 0</span>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex gap-3">
+                    <button onclick="app.saveHistory()" class="flex-1 bg-primary hover:bg-blue-600 text-white py-3 rounded-lg font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Simpan
+                    </button>
+                    <button onclick="app.exportMarkdown()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-lg font-bold transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download"></i> Unduh .md
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- ==================== TAB: HISTORY ==================== -->
+        <div id="view-history" class="hidden space-y-4">
+            <div class="flex justify-between items-center bg-card p-4 rounded-xl shadow border border-slate-700">
+                <h2 class="text-lg font-semibold"><i class="fa-solid fa-clock-rotate-left mr-2"></i>Riwayat QC</h2>
+                <button onclick="app.clearHistory()" class="text-danger hover:text-red-400 text-sm font-medium"><i class="fa-solid fa-trash mr-1"></i>Hapus Semua</button>
+            </div>
+
+            <div id="history-container" class="space-y-4">
+                <!-- Dinamis digenerate oleh JS -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 w-full max-w-sm px-4"></div>
+
+    <script>
+        // =====================================================================
+        // DATA & CONFIGURATION
+        // =====================================================================
+        const DATA = {
+            series: {
+                iPhone: ["iPhone 8 / 8 Plus", "iPhone X", "iPhone XR", "iPhone XS / XS Max", "iPhone 11", "iPhone 11 Pro / Pro Max", "iPhone 12 / 12 Mini", "iPhone 12 Pro / Pro Max", "iPhone 13 / 13 Mini", "iPhone 13 Pro / Pro Max", "iPhone 14 / 14 Plus", "iPhone 14 Pro / Pro Max", "iPhone 15 / 15 Plus", "iPhone 15 Pro / Pro Max", "Lainnya"],
+                Samsung: ["Galaxy S23/S24 Ultra", "Galaxy S22/S21 Series", "Galaxy Z Fold/Flip", "Galaxy A54/A55", "Galaxy A Series Lainnya", "Galaxy M Series", "Lainnya"],
+                Xiaomi: ["Xiaomi 14/13 Series", "Redmi Note 13/12 Series", "Poco X6/X5 Series", "Poco F5/F4", "Redmi Entry Level", "Lainnya"],
+                Oppo: ["Find X Series", "Reno 11/10 Series", "A Series", "Lainnya"],
+                Vivo: ["X100/X90 Series", "V30/V29 Series", "Y Series", "Lainnya"],
+                Realme: ["GT Series", "Number Series (12/11)", "C Series", "Lainnya"],
+                Infinix: ["Zero Series", "Note Series", "Hot/Smart Series", "Lainnya"],
+                Lainnya: ["Ketik Manual"]
+            },
+            checklist: {
+                "Sebelum Reset": [
+                    { id: "fisik", label: "Fisik & Bodi (Lecet/Penyok)", penalty: 5 },
+                    { id: "tombol", label: "Tombol Power & Volume", penalty: 5 },
+                    { id: "kamera", label: "Kamera Depan & Belakang", penalty: 10 },
+                    { id: "layar", label: "Layar (Touch, True Tone, Shadow)", penalty: 15 },
+                    { id: "speaker", label: "Speaker, Mic & Earpiece", penalty: 5 },
+                    { id: "biometrik", label: "Face ID / Fingerprint", penalty: 10 },
+                    { id: "konektivitas", label: "Wi-Fi, Bluetooth, GPS", penalty: 5 },
+                    { id: "baterai", label: "Battery Health / Suntikan", penalty: 10 }
+                ],
+                "Sesudah Reset": [
+                    { id: "akun", label: "Bebas iCloud / Google Account", penalty: 20 },
+                    { id: "sinyal", label: "Sinyal Seluler & Blokir IMEI", penalty: 15 },
+                    { id: "komponen", label: "Notif Komponen Diganti (3uTools)", penalty: 5 }
+                ]
+            }
+        };
+
+        // =====================================================================
+        // APPLICATION LOGIC
+        // =====================================================================
+        const app = {
+            state: {
+                checklistStatus: {} // { id: 'pass' | 'fail' }
+            },
+
+            init() {
+                this.renderChecklist();
+                this.handlePlatformChange(); // Setup awal dropdown seri
+            },
+
+            // --- UI Interactions & Tabs ---
+            switchTab(tab) {
+                const isQC = tab === 'qc';
+                document.getElementById('view-qc').classList.toggle('hidden', !isQC);
+                document.getElementById('view-history').classList.toggle('hidden', isQC);
+                
+                document.getElementById('tab-qc').className = isQC ? 'flex-1 py-3 text-center tab-active transition' : 'flex-1 py-3 text-center tab-inactive transition';
+                document.getElementById('tab-history').className = !isQC ? 'flex-1 py-3 text-center tab-active transition' : 'flex-1 py-3 text-center tab-inactive transition';
+
+                if(!isQC) this.renderHistory();
+            },
+
+            showToast(message, type = 'success') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                const bgColor = type === 'success' ? 'bg-success' : type === 'danger' ? 'bg-danger' : 'bg-primary';
+                toast.className = `toast-anim ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg flex items-center text-sm font-medium`;
+                toast.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'check-circle' : 'circle-exclamation'} mr-2"></i> ${message}`;
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(100%)';
+                    toast.style.transition = 'all 0.3s ease-in';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            },
+
+            // --- Form Handlers ---
+            handlePlatformChange() {
+                const platform = document.getElementById('input-platform').value;
+                const wrapperBrand = document.getElementById('wrapper-brand');
+                
+                if(platform === 'iPhone') {
+                    wrapperBrand.classList.add('hidden');
+                    this.populateSeries(DATA.series.iPhone);
+                } else {
+                    wrapperBrand.classList.remove('hidden');
+                    this.handleBrandChange(); // Populate based on brand
+                }
+            },
+
+            handleBrandChange() {
+                const brand = document.getElementById('input-brand').value;
+                this.populateSeries(DATA.series[brand] || DATA.series.Lainnya);
+            },
+
+            populateSeries(list) {
+                const select = document.getElementById('input-series');
+                select.innerHTML = list.map(item => `<option value="${item}">${item}</option>`).join('');
+                select.innerHTML += `<option value="Manual">Ketik Manual...</option>`;
+                this.handleSeriesChange();
+            },
+
+            handleSeriesChange() {
+                const select = document.getElementById('input-series');
+                const manualInput = document.getElementById('input-series-manual');
+                if (select.value === 'Manual' || select.value === 'Lainnya') {
+                    manualInput.classList.remove('hidden');
+                } else {
+                    manualInput.classList.add('hidden');
+                    manualInput.value = '';
+                }
+            },
+
+            // --- Formatting ---
+            formatCurrencyInput(input) {
+                let value = input.value.replace(/[^,\d]/g, '').toString();
+                if(!value) { input.value = ''; return; }
+                input.value = new Intl.NumberFormat('id-ID').format(value);
+            },
+
+            getUnformattedNumber(str) {
+                if(!str) return 0;
+                return parseInt(str.replace(/[^0-9]/g, '')) || 0;
+            },
+
+            formatRupiah(number) {
+                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+            },
+
+            // --- Checklist Logic ---
+            renderChecklist() {
+                const container = document.getElementById('checklist-container');
+                container.innerHTML = '';
+
+                for (const [category, items] of Object.entries(DATA.checklist)) {
+                    let html = `<div class="mb-4"><h3 class="text-sm font-bold text-slate-400 mb-2 uppercase">${category}</h3><div class="space-y-2">`;
+                    
+                    items.forEach(item => {
+                        html += `
+                            <div class="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-700">
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-white">${item.label}</p>
+                                    <p class="text-xs text-danger mt-0.5">Penalti: -${item.penalty}%</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button id="btn-pass-${item.id}" onclick="app.setChecklist('${item.id}', 'pass')" class="check-btn w-10 h-10 rounded-lg border border-slate-600 text-slate-400 flex items-center justify-center transition">
+                                        <i class="fa-solid fa-check"></i>
+                                    </button>
+                                    <button id="btn-fail-${item.id}" onclick="app.setChecklist('${item.id}', 'fail')" class="cross-btn w-10 h-10 rounded-lg border border-slate-600 text-slate-400 flex items-center justify-center transition">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `</div></div>`;
+                    container.innerHTML += html;
+                }
+            },
+
+            setChecklist(id, status) {
+                this.state.checklistStatus[id] = status;
+                
+                // Update UI Buttons
+                document.getElementById(`btn-pass-${id}`).classList.remove('active');
+                document.getElementById(`btn-fail-${id}`).classList.remove('active');
+                
+                if (status === 'pass') {
+                    document.getElementById(`btn-pass-${id}`).classList.add('active');
+                } else if (status === 'fail') {
+                    document.getElementById(`btn-fail-${id}`).classList.add('active');
+                }
+                
+                this.calculate();
+            },
+
+            // --- Calculation Engine ---
+            calculate() {
+                const hargaAwal = this.getUnformattedNumber(document.getElementById('input-price').value);
+                const biayaServis = this.getUnformattedNumber(document.getElementById('input-repair').value);
+                const kelengkapan = document.getElementById('input-completeness').value;
+
+                let totalPenaltyPercent = 0;
+
+                // Hitung dari checklist
+                Object.values(DATA.checklist).flat().forEach(item => {
+                    if (this.state.checklistStatus[item.id] === 'fail') {
+                        totalPenaltyPercent += item.penalty;
+                    }
+                });
+
+                // Hitung penalti kelengkapan
+                if (kelengkapan === 'Batangan') {
+                    totalPenaltyPercent += 5;
+                }
+
+                // Update Badge Minus
+                const badge = document.getElementById('badge-minus');
+                badge.innerText = `Total Minus: ${totalPenaltyPercent}%`;
+                if(totalPenaltyPercent > 0) {
+                    badge.classList.remove('bg-success'); badge.classList.add('bg-danger');
+                } else {
+                    badge.classList.remove('bg-danger'); badge.classList.add('bg-success');
+                }
+
+                // Perhitungan Harga Dasar Rekomendasi (Pilihan 5)
+                const hargaMinusChecklist = hargaAwal * (totalPenaltyPercent / 100);
+                let hargaRekomendasi = hargaAwal - hargaMinusChecklist - biayaServis;
+                if (hargaRekomendasi < 0) hargaRekomendasi = 0;
+
+                // Variasi Harga (P1 sd P5)
+                // P5: Rekomendasi (Base)
+                const p5 = hargaRekomendasi;
+                
+                // P1: Nego Halus (Rekomendasi + 5%, batas max Harga Awal)
+                let p1 = hargaRekomendasi + (hargaAwal * 0.05);
+                if (p1 > hargaAwal || totalPenaltyPercent === 0) p1 = hargaAwal - biayaServis;
+
+                // P2: Nego Wajar (Sama dengan Rekomendasi)
+                const p2 = hargaRekomendasi;
+
+                // P3: Nego Sadis (Rekomendasi - 10%)
+                let p3 = hargaRekomendasi - (hargaAwal * 0.10);
+                if (p3 < 0) p3 = 0;
+
+                // P4: Maksimal Pengambilan (Rekomendasi + 3%)
+                let p4 = hargaRekomendasi + (hargaAwal * 0.03);
+                if (p4 > hargaAwal) p4 = hargaAwal - biayaServis;
+
+                // Update UI Prices
+                document.getElementById('price-1').innerText = this.formatRupiah(p1);
+                document.getElementById('price-2').innerText = this.formatRupiah(p2);
+                document.getElementById('price-3').innerText = this.formatRupiah(p3);
+                document.getElementById('price-4').innerText = this.formatRupiah(p4);
+                document.getElementById('price-5').innerText = this.formatRupiah(p5);
+                
+                return { hargaAwal, biayaServis, totalPenaltyPercent, p1, p2, p3, p4, p5 };
+            },
+
+            // --- Storage & History ---
+            getCurrentFormData() {
+                const selectSeries = document.getElementById('input-series').value;
+                const manualSeries = document.getElementById('input-series-manual').value;
+                const finalSeries = (selectSeries === 'Manual' || selectSeries === 'Lainnya') && manualSeries ? manualSeries : selectSeries;
+                const calcs = this.calculate();
+
+                return {
+                    id: Date.now().toString(),
+                    date: new Date().toLocaleString('id-ID'),
+                    platform: document.getElementById('input-platform').value,
+                    brand: document.getElementById('input-brand').value,
+                    series: finalSeries,
+                    method: document.getElementById('input-method').value,
+                    location: document.getElementById('input-location').value || 'Tidak disebutkan',
+                    hargaAwal: document.getElementById('input-price').value || '0',
+                    biayaServis: document.getElementById('input-repair').value || '0',
+                    score3u: document.getElementById('input-3utools').value || '-',
+                    status3u: document.getElementById('input-3utools-status').value,
+                    kelengkapan: document.getElementById('input-completeness').value,
+                    checklist: { ...this.state.checklistStatus },
+                    calcs: calcs
+                };
+            },
+
+            saveHistory() {
+                if(!document.getElementById('input-price').value) {
+                    this.showToast('Harap masukkan Harga Awal terlebih dahulu!', 'danger');
+                    return;
+                }
+                const data = this.getCurrentFormData();
+                let history = JSON.parse(localStorage.getItem('qc_history_cod')) || [];
+                history.unshift(data); // Add to beginning
+                localStorage.setItem('qc_history_cod', JSON.stringify(history));
+                this.showToast('Data berhasil disimpan ke Riwayat!');
+            },
+
+            renderHistory() {
+                const container = document.getElementById('history-container');
+                const history = JSON.parse(localStorage.getItem('qc_history_cod')) || [];
+                
+                if (history.length === 0) {
+                    container.innerHTML = `<div class="text-center p-8 text-slate-500"><i class="fa-solid fa-box-open text-4xl mb-3"></i><p>Belum ada riwayat QC tersimpan.</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = history.map(item => `
+                    <div class="bg-card p-4 rounded-xl shadow border border-slate-700 relative">
+                        <button onclick="app.deleteHistoryItem('${item.id}')" class="absolute top-4 right-4 text-slate-500 hover:text-danger transition"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-white">${item.platform === 'iPhone' ? 'Apple' : item.brand} ${item.series}</h3>
+                                <p class="text-xs text-slate-400"><i class="fa-regular fa-clock"></i> ${item.date}</p>
+                            </div>
+                            <span class="bg-slate-800 text-xs px-2 py-1 rounded text-primary font-medium border border-slate-600">${item.method}</span>
+                        </div>
+                        <div class="mt-3 grid grid-cols-2 gap-2 text-sm border-t border-slate-700 pt-3">
+                            <div>
+                                <p class="text-slate-400 text-xs">Lokasi</p>
+                                <p class="text-white truncate">${item.location}</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-400 text-xs">Harga Awal</p>
+                                <p class="text-white font-medium">Rp ${item.hargaAwal}</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-400 text-xs">Minus</p>
+                                <p class="${item.calcs.totalPenaltyPercent > 0 ? 'text-danger' : 'text-success'} font-bold">${item.calcs.totalPenaltyPercent}%</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-400 text-xs">Rekomendasi</p>
+                                <p class="text-primary font-bold">${this.formatRupiah(item.calcs.p5)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            deleteHistoryItem(id) {
+                if(confirm('Hapus data riwayat ini?')) {
+                    let history = JSON.parse(localStorage.getItem('qc_history_cod')) || [];
+                    history = history.filter(item => item.id !== id);
+                    localStorage.setItem('qc_history_cod', JSON.stringify(history));
+                    this.renderHistory();
+                    this.showToast('Riwayat dihapus');
+                }
+            },
+
+            clearHistory() {
+                if(confirm('Yakin ingin menghapus SEMUA riwayat? Data tidak bisa dikembalikan.')) {
+                    localStorage.removeItem('qc_history_cod');
+                    this.renderHistory();
+                    this.showToast('Seluruh riwayat dibersihkan');
+                }
+            },
+
+            // --- Export / Import Markdown ---
+            exportMarkdown() {
+                const data = this.getCurrentFormData();
+                if(!document.getElementById('input-price').value) {
+                    this.showToast('Isi form harga terlebih dahulu sebelum export.', 'warning');
+                    return;
+                }
+
+                let md = `# Laporan QC Smartphone COD\n\n`;
+                md += `## Informasi Dasar\n`;
+                md += `- Tanggal QC: ${data.date}\n`;
+                md += `- Platform: ${data.platform}\n`;
+                if(data.platform !== 'iPhone') md += `- Merek: ${data.brand}\n`;
+                md += `- Seri HP: ${data.series}\n`;
+                md += `- Metode Transaksi: ${data.method}\n`;
+                md += `- Lokasi: ${data.location}\n`;
+                md += `- Harga Awal: Rp ${data.hargaAwal}\n`;
+                md += `- Biaya Servis Kustom: Rp ${data.biayaServis}\n\n`;
+                
+                md += `## Kondisi Opsional\n`;
+                md += `- Skor 3uTools: ${data.score3u} (${data.status3u})\n`;
+                md += `- Kelengkapan: ${data.kelengkapan}\n\n`;
+
+                md += `## Checklist Kualitas\n`;
+                Object.values(DATA.checklist).flat().forEach(item => {
+                    const status = data.checklist[item.id];
+                    let icon = "[ ]"; // Not checked
+                    let textStat = "(Belum dicek)";
+                    if(status === 'pass') { icon = "[v]"; textStat = "(Lolos)"; }
+                    else if(status === 'fail') { icon = "[x]"; textStat = "(Minus)"; }
+                    md += `- ${icon} ${item.label} ${textStat}\n`;
+                });
+
+                md += `\n## Ringkasan Kalkulasi\n`;
+                md += `- Total Penalti Minus: ${data.calcs.totalPenaltyPercent}%\n`;
+                md += `- Pilihan 1 (Nego Halus): ${this.formatRupiah(data.calcs.p1)}\n`;
+                md += `- Pilihan 2 (Nego Wajar): ${this.formatRupiah(data.calcs.p2)}\n`;
+                md += `- Pilihan 3 (Nego Sadis): ${this.formatRupiah(data.calcs.p3)}\n`;
+                md += `- Pilihan 4 (Maks Pengambilan): ${this.formatRupiah(data.calcs.p4)}\n`;
+                md += `- Pilihan 5 (Rekomendasi Akhir): ${this.formatRupiah(data.calcs.p5)}\n\n`;
+                md += `--- \n*Generated by QC COD Pro App*`;
+
+                // Trigger download
+                const blob = new Blob([md], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `QC_${data.platform}_${data.series.replace(/\//g,'')}_${Date.now()}.md`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                this.showToast('File Markdown berhasil diunduh!');
+            },
+
+            importMarkdown(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    try {
+                        this.parseAndLoadMarkdown(text);
+                        this.showToast('File MD berhasil di-import!', 'success');
+                    } catch (error) {
+                        console.error(error);
+                        this.showToast('Gagal memproses file MD. Format tidak sesuai.', 'danger');
+                    }
+                    event.target.value = ''; // Reset input
+                };
+                reader.readAsText(file);
+            },
+
+            parseAndLoadMarkdown(mdText) {
+                const lines = mdText.split('\n');
+                
+                // Helper to extract value from `- Key: Value`
+                const getVal = (prefix) => {
+                    const line = lines.find(l => l.startsWith(prefix));
+                    return line ? line.substring(prefix.length).trim() : null;
+                };
+
+                // 1. Set Platform & Brand
+                const platform = getVal('- Platform: ');
+                if(platform) {
+                    document.getElementById('input-platform').value = platform;
+                    this.handlePlatformChange();
+                }
+
+                const brand = getVal('- Merek: ');
+                if(brand && platform !== 'iPhone') {
+                    document.getElementById('input-brand').value = brand;
+                    this.handleBrandChange();
+                }
+
+                // 2. Set Series (Check if exists in dropdown, else manual)
+                const series = getVal('- Seri HP: ');
+                if(series) {
+                    const selectSeries = document.getElementById('input-series');
+                    const exists = Array.from(selectSeries.options).some(opt => opt.value === series);
+                    if(exists) {
+                        selectSeries.value = series;
+                    } else {
+                        selectSeries.value = 'Manual';
+                        document.getElementById('input-series-manual').value = series;
+                    }
+                    this.handleSeriesChange();
+                }
+
+                // 3. Set Method, Location, Prices
+                const method = getVal('- Metode Transaksi: ');
+                if(method) document.getElementById('input-method').value = method;
+                
+                const location = getVal('- Lokasi: ');
+                if(location) document.getElementById('input-location').value = location;
+
+                const hargaText = getVal('- Harga Awal: Rp ');
+                if(hargaText) {
+                    const inputHarga = document.getElementById('input-price');
+                    inputHarga.value = hargaText;
+                    this.formatCurrencyInput(inputHarga);
+                }
+
+                const servisText = getVal('- Biaya Servis Kustom: Rp ');
+                if(servisText) {
+                    const inputServis = document.getElementById('input-repair');
+                    inputServis.value = servisText;
+                    this.formatCurrencyInput(inputServis);
+                }
+
+                // 4. Set Optional
+                const scoreLine = lines.find(l => l.startsWith('- Skor 3uTools: '));
+                if(scoreLine) {
+                    const match = scoreLine.match(/- Skor 3uTools: (.*) \((.*)\)/);
+                    if(match) {
+                        document.getElementById('input-3utools').value = match[1] === '-' ? '' : match[1];
+                        document.getElementById('input-3utools-status').value = match[2];
+                    }
+                }
+
+                const kelengkapan = getVal('- Kelengkapan: ');
+                if(kelengkapan) document.getElementById('input-completeness').value = kelengkapan;
+
+                // 5. Parse Checklist
+                // Reset state first
+                this.state.checklistStatus = {};
+                Object.values(DATA.checklist).flat().forEach(item => {
+                    const cLine = lines.find(l => l.includes(item.label));
+                    if(cLine) {
+                        if(cLine.includes('[v]')) {
+                            this.setChecklist(item.id, 'pass');
+                        } else if(cLine.includes('[x]')) {
+                            this.setChecklist(item.id, 'fail');
+                        }
+                    }
+                });
+
+                // Auto save imported to history to sync
+                this.calculate();
+                this.saveHistory();
+                this.switchTab('qc');
+                window.scrollTo(0, 0);
+            }
+        };
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
